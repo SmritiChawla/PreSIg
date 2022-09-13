@@ -16,7 +16,9 @@ Imports:
     ggplot2, 
     UniPath,
     ComplexHeatmap,
-    ggpubr,
+    ggpubr
     knitr
-Suggests: rmarkdown
+Suggests: 
+    rmarkdown, 
+    knitr
 VignetteBuilder: knitr
