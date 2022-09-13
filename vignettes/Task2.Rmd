@@ -1,0 +1,182 @@
+---
+title: "PreSig: Task 2"
+output: 
+ html_document:
+    theme: "cerulean"
+    highlight: default
+    code_download: true
+    toc: true
+    toc_depth: 3
+    toc_float: 
+            collapsed: false
+editor_options: 
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{PreSig:Task2}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+<style>
+pre {
+  overflow-x: auto;
+}
+pre code {
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+
+
+## Getting started
+
+* PreSig is available on github repository: https://github.com/SmritiChawla/PreSig
+
+
+For task 2, following packages are recommended: ggplot2, ComplexHeatmap, ggpubr.
+
+
+This vigenette shows results of Task 2 which involves investigation of similarities in bulk RNA-seq CCLE gene expression profiles and GDSC drug response data. This task involves fitting linear model for each drug and each gene. 
+
+Barretina, J. et al. The Cancer Cell Line Encyclopedia enables predictive modelling of 
+anticancer drug sensitivity. Nature 483, 603–607 (2012).
+
+Yang, W. et al. Genomics of Drug Sensitivity in Cancer (GDSC): a resource for therapeutic 
+biomarker discovery in cancer cells. Nucleic Acids Res. 41, D955–61 (2013).
+
+
+
+
+
+```{r Libraries, warning=FALSE,message=FALSE}
+
+## Loading required packages
+library(PreSig)
+library(ggplot2)
+library(ggpubr)
+library(ComplexHeatmap)
+```
+
+
+## Task 2
+
+## Identifying similarities in CCLE gene expression profiles
+
+
+```{r CCLE, echo=TRUE, fig.width= 8, fig.height=5}
+## Load CCLE gene expression data
+load(system.file("extdata", "CCLE_gene_expression.RData", package = "PreSig", mustWork = TRUE))
+
+## Compute Spearman correlation
+cor = cor(CCLE_expr,method="spearman")
+
+## Plot heatmap
+Heatmap(cor, show_row_names = F,show_column_names = F,heatmap_legend_param = list(title = 'Spearman Correlation'))
+
+```
+
+Cell lines with HAEMATOPOIETIC AND LYMPHOID TISSUE origin clustered together. These cell lines are: SUPT1, JURKAT, PF382, RPMI8402, MHHCALL2, 697, NALM6, GRANTA519, REH, SUPB15, AMO1, JJN3, MM1S, MOLP8, LP1, SKMM2, L363, NCIH929, OPM2, ST486, SUDHL6, MEG01, JURLMK1, KU812, LAMA84, KCL22, OCIAML3, EM2, EOL1CELL, MONOMAC6, NOMO1, OCIAML5, MOLM13, MV411, HL60.
+
+Similarly, most of the cell lines originating from lung tisse clustered together. Some of the examples of these cell lines include: DMS53, CORL95, COLO668, CORL88, NCIH211, NCIH1876, NCIH526, NCIH1963, NCIH209, CORL311, CORL279. 
+
+
+## Model drug response in form of IC50 values using linear models
+
+Drug wise gene expression profiles of CCLE have been processed as individual drugs have been screened against different cell lines. Drugs.zip file contains indvidual drug files and are present in google drive link: https://drive.google.com/drive/folders/1Z9wh-vaSnZ_E5VFUqy_gtKIaF12tCmo1?usp=sharing
+
+
+
+```{r linear models, eval=FALSE}
+## Get list of all drug wise gene expression files
+files = list.files(pattern =".rds")
+pvalue = list()
+
+## Read drug wise gene expression files
+## Fit lm model for gene and drug
+## Store p values
+for (i in 1:length(files)){
+df <- readRDS(files[i])
+model=lapply(df[-(1)], function(x)lm(df[,1]~x))
+pvalue[[i]]= sapply(model, function(x) summary(x)$coefficients[, 4][2])
+}
+
+```
+
+To model drug response in form of IC50 value, linear models were fit considering expression profile of each gene as independent variable and each drug's IC50 values across cell line as dependent variable. 
+
+## Identification of top 25 genes based on the p values obtained from linear models
+
+```{r top genes, echo=TRUE}
+## Loading pre computed P values for genes
+load(system.file("extdata", "Drugwise_Pvals.RData", package = "PreSig", mustWork = TRUE))
+
+## Identify top 25 genes based on P-values
+TopGenes = list()
+for ( i in 1:length(pvalue)){
+  Genes = names(sort(pvalue[[i]])[1:25])
+  TopGenes[[i]]=gsub("\\..*","",(Genes))
+  names(TopGenes)[i] = names(pvalue)[i]
+  ## Top 25 genes
+  dbg = do.call(cbind,(TopGenes))
+  head(dbg)
+  }
+```
+
+
+## Scatter plots for significant gene/drug pairs
+
+```{r Scatterplots, echo=TRUE, fig.width=4,fig.height=4}
+## AZD1208 drug
+AZD1208 = readRDS(system.file("extdata", "AZD1208.rds", package = "PreSig", mustWork = TRUE))
+ggscatter(AZD1208, x = "AZD1208", y = "ANXA2P2",
+                            add = "reg.line",   color = "orange",
+                            conf.int = TRUE,
+                            add.params = list(color = "black",
+                                              fill = "lightgray")
+)+stat_cor(method = "spearman")
+
+## AGI-6780
+AGI = readRDS(system.file("extdata", "AGI-6780.rds", package = "PreSig", mustWork = TRUE))
+ggscatter(AGI, x = "AGI-6780", y = "SDC4",
+          add = "reg.line",   color = "magenta",
+          conf.int = TRUE,
+          add.params = list(color = "black",
+                            fill = "lightgray")
+)+stat_cor(method = "spearman")
+
+## Alisertib drug
+Alisertib = readRDS(system.file("extdata", "Alisertib.rds", package = "PreSig", mustWork = TRUE))
+ggscatter(Alisertib, x = "Alisertib", y = "SDC4",
+          add = "reg.line",   color = "navyblue",
+          conf.int = TRUE,
+          add.params = list(color = "black",
+                            fill = "lightgray")
+)+stat_cor(method = "spearman")
+
+## Paclitaxel drug
+Paclitaxel = readRDS(system.file("extdata", "Paclitaxel.rds", package = "PreSig", mustWork = TRUE))
+ggscatter(Paclitaxel, x = "Paclitaxel", y = "SDC4",
+          add = "reg.line",   color = "pink",
+          conf.int = TRUE,                                  
+          add.params = list(color = "black",
+                            fill = "lightgray")
+)+stat_cor(method = "spearman")
+
+
+```
+
+***
+
+## R.session Info
+
+```{r SessionInfo, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+#options(width=900) #only works properly in conjunction with the style:overflow.x option at the start
+options(width=80) #reset to 'default' width
+
+sessionInfo() #record the R and package versions used
+#######################################################
+### END
+#######################################################
+
+```

@@ -1,0 +1,314 @@
+---
+title: "PreSig: Task 1"
+output: 
+ html_document:
+    theme: "cerulean"
+    highlight: default
+    code_download: true
+    toc: true
+    toc_depth: 3
+    toc_float: 
+            collapsed: false
+editor_options: 
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{PreSig:Task1}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+<style>
+pre {
+  overflow-x: auto;
+}
+pre code {
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+
+## Task 1
+
+
+## Getting started
+
+
+* PreSig is available on github repository: https://github.com/SmritiChawla/PreSig
+
+
+For task 1, following packages are recommended: scRNAseq, GSVA, ggplot2, UniPath.
+
+
+This vigenette shows results for Task 1:
+
+Comparison of two single cell gene set enrichment methods— GSVA and UniPath in terms of gene sets rankings. The gene set marker file was sourced from CellMarker (http://bio-bigdata.hrbmu.edu.cn/CellMarker/)
+
+Zhang, Xinxin, et al. "CellMarker: a manually curated resource of cell markers in human and mouse." Nucleic acids research 47.D1 (2019): D721-D728.
+
+
+
+```{r Libraries, warning=FALSE,message=FALSE}
+
+## Loading required packages
+library(PreSig)
+library(scRNAseq)
+library(GSVA)
+library(UniPath)
+library(ggplot2)
+```
+
+
+
+
+## Single cell gene exrpession matrix 
+
+
+Load gene expression data from scRNAseq R/Bioconductor package. The single cell gene expression matrix should contain genes in rows and samples in columns.
+
+```{r scRNA-seq, warning=FALSE,message=FALSE}
+sce=ReprocessedFluidigmData()
+exprMat = as.matrix(sce@assays@data$rsem_tpm)
+```
+For this particular task, Pollen et al. (2014) dataset having 130 cells is considered.
+
+Pollen, Alex A., et al. "Low-coverage single-cell mRNA sequencing reveals cellular heterogeneity and activated signaling pathways in developing cerebral cortex." Nature biotechnology 32.10 (2014): 1053-1058.
+
+## Load  CellMarker gene set file
+
+
+To run GSVA or UniPath, gene set marker file is required. For, this task 1036 gene sets from CellMarker have been used. In order to run GSVA, collection of gene sets should be a list object. For UniPath, gene sets should be in a form of dataframe, where gene sets are in rows.
+
+```{r Markers, echo=TRUE}
+## Load gene set file
+geneSets = read.csv(system.file("extdata","CellMarker.csv", package = "PreSig", mustWork = TRUE), header=F,row.names = 1)
+
+## Process geneSet file based on GSVA input
+geneSet =apply(geneSets, 1, function(x) x[x!= ""])
+```
+
+
+## Run GSVA
+
+
+Using single cell gene expression matrix and gene set file, we transformed gene expression matrix into gene set enrichment scores using GSVA.
+
+```{r  GSVA, warning=FALSE,message=FALSE}
+
+## log2 transform expression matrix for GSVA
+expr = log2(exprMat+1)
+
+## Run GSVA
+Scores = gsva(expr,geneSet,method="gsva",kcdf="Gaussian",verbose=F)
+
+```
+
+
+## Cell assignment based on GSVA scores
+
+
+Gene set with highest GSVA score was assigned as a cell type to each cell.
+
+```{r Cell assignment GSVA, echo=TRUE}
+
+## Define empty matrix to store cell types with highest scores
+Cellassignment_GSVA = matrix(0,ncol(expr),1)
+
+## Sort individual column/sample and assign cell type with highest score to that sample
+for (i in 1:ncol(Scores)){
+  indices = order(Scores[,i],decreasing = T)[1]
+  Cellassignment_GSVA[i] = rownames(Scores)[indices]}
+
+## Cell assignment to each cell with highest activity score
+head(Cellassignment_GSVA)
+```
+Cellassignment_GSVA contains cell types assigned to each cell based on highest GSVA score.
+
+
+## Run UniPath
+
+UniPath transforms single cell gene expression matrix into pathway or gene set enrichment scores using gene set file and null model.
+
+```{r  UniPath, warning=FALSE,message=FALSE}
+
+## load human null model
+data("human_null_model")
+
+## Convert null model into P values
+Pval = binorm(human_null_data)
+
+## Combine P values for null model
+combp_ref = UniPath::combine(geneSets,human_null_data,rownames(human_null_data),Pval,thr=10)
+
+## Comput P values for gene expression matrix
+Pval1 = binorm(exprMat)
+
+## Combine P values for gene expression matrix
+combp = combine(geneSets,exprMat,rownames(exprMat),Pval1,thr=10)
+
+## Adjust P values using null model
+scores = adjust(combp,combp_ref)
+
+## Pathway enrichment scores
+scores = scores$adjpvalog
+```
+
+## Cell Assignment based on UniPath scores
+
+
+
+Gene set with highest UniPath score was assigned as a cell type to each cell. 
+
+```{r Cell assignment UniPath, echo=TRUE}
+
+## Define empty matrix to store cell types with highest scores
+Cellassignment_UniPath = matrix(0,ncol(expr),1)
+
+## Sort individual column/sample and assign cell type with highest score to that sample
+  Cellassignment_UniPath = matrix(0,ncol(exprMat),1)
+  for (i in 1:ncol(scores)){
+    indices = order(scores[,i],decreasing = T)[1]
+    Cellassignment_UniPath[i] = rownames(scores)[indices]
+  }
+  
+## Cell assignment to each cell with highest activity score
+head(Cellassignment_UniPath)
+```
+Cellassignment_UniPath contains cell types assigned to each cell based on highest UniPath score.
+
+
+
+## Confusion Matrix between UniPath and GSVA
+
+```{r Confusion matrix UniPath vs GSVA, echo=TRUE,fig.width=10,fig.height=14}
+  
+  ## Create confusion matrix
+  tab <- table(Cellassignment_GSVA, Cellassignment_UniPath)
+  tab = as.data.frame(tab)
+  
+  ## Create plot
+  ggplot(tab,aes(Cellassignment_UniPath, Cellassignment_GSVA)) +
+  geom_tile(aes(fill = Freq), color = "white") +
+  geom_text(aes(label = Freq), color = "black") +
+  scale_fill_gradient(low="grey", high="blue")+
+  theme_bw()+ theme(axis.text.x = element_text(angle = 45,  hjust = 1)) + xlab("Cellassignment GSVA") + ylab("Cellassignment UniPath")
+```
+
+
+## Computing ranks for gene set scores obtained by GSVA and UniPath
+
+
+```{r Ranks, echo=TRUE}
+
+## Ranks
+GSVA_ranks = apply(Scores, 2, rank)
+UniPath_ranks = apply(scores, 2, rank)
+```
+
+GSVA performs internal filtering to remove certain gene sets. Processing of GSVA matrix to include gene sets present in UniPath 
+
+```{r precessing GSVA, echo=TRUE}
+`%ni%` <- Negate(`%in%`)
+pos = which(rownames(UniPath_ranks) %ni% rownames(GSVA_ranks))
+## Create empty matrix with geneSets not present in GSVA 
+GS = matrix(0,length(pos),ncol(GSVA_ranks))
+rownames(GS) = rownames(UniPath_ranks)[pos]
+fin = rbind(GSVA_ranks,GS)         
+```
+
+## Computing average ranks
+
+```{r Ranks average, echo=TRUE}
+## Ensure order of gene sets in UniPath and GSVA are same.
+fin = fin[rownames(UniPath_ranks),]
+
+## Compute average ranks
+l = list(UniPath_ranks,fin)
+Ranks_ave = Reduce('+', l)/length(l)
+```
+
+
+## Re-ranking of gene sets by average ranks
+
+
+```{r Re ranking, echo=TRUE}
+Re_ranks = apply(Ranks_ave, 2, rank)
+
+```
+
+## Cell Assignment based on re-ranking of average ranks
+
+Gene set with highest UniPath score was assigned as a cell type to each cell. 
+
+```{r Cell assignment Re rank, echo=TRUE}
+  ## Define empty matrix to store cell types with highest scores
+  Cellassign = matrix(0,ncol(Re_ranks),1)
+  
+  ## Sort individual column/sample and assign cell type with highest score to that sample
+  for ( i in 1:ncol(Re_ranks)){
+  indices = order(Re_ranks[,i],decreasing = T)[1]
+  Cellassign[i] = rownames(Re_ranks)[indices]
+}
+
+Cellassignment = cbind.data.frame(colnames(Re_ranks),Cellassign)
+colnames(Cellassignment) = c("Cells", "Cell assignment")
+## Cell assignment to each cell with highest activity score
+head(Cellassignment)
+```
+
+Cellassignment contains cell types assigned to each cell based on Re ranking method
+
+
+## Confusion Matrix between GSVA and Average ranking method
+
+```{r Confusion matrix GSVA vs Average ranking, echo=TRUE,fig.width=20,fig.height=35}
+ 
+## Create confusion matrix
+tab <- table(Cellassignment_GSVA,Cellassignment$`Cell assignment`)
+tab = as.data.frame(tab)
+
+## Plot confusion matrix
+ggplot(tab,aes(Var2,Cellassignment_GSVA)) +
+  geom_tile(aes(fill = Freq), color = "white") +
+  geom_text(aes(label = Freq), color = "black") +
+  scale_fill_gradient(low="grey", high="blue")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 45,  hjust = 1,size=15),axis.text.y = element_text(size=15),legend.text = element_text(size=15)) + ylab("Cellassignment GSVA") + xlab("Cellassignment Average Rank based")
+
+
+```
+
+
+## Confusion Matrix between UniPath and Average ranking method
+
+```{r Confusion matrix UniPath vs Average ranking, echo=TRUE,fig.width=13,fig.height=10}
+## Create confusion matrix
+tab <- table(Cellassignment_UniPath,Cellassignment$`Cell assignment`)
+tab = as.data.frame(tab)
+
+## Plot confusion matrix
+ggplot(tab,aes(Var2,Cellassignment_UniPath)) +
+  geom_tile(aes(fill = Freq), color = "white") +
+  geom_text(aes(label = Freq), color = "black") +
+  scale_fill_gradient(low="grey", high="blue")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 45,  hjust = 1,size=15),axis.text.y = element_text(size=15)) + ylab("Cellassignment UniPath") + xlab("Cellassignment Average Rank based")
+
+
+```
+
+
+***
+
+## R.session Info
+
+```{r SessionInfo, echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+#options(width=900) #only works properly in conjunction with the style:overflow.x option at the start
+options(width=80) #reset to 'default' width
+
+sessionInfo() #record the R and package versions used
+#######################################################
+### END
+#######################################################
+
+```
