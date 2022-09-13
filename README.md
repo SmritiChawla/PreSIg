@@ -1,6 +1,6 @@
 <H1> PreSig </H1>
 
-<H3> Gene set enrichement and drug response modelling </H3>
+<H3> Gene set enrichement and drug response modelling. </H3>
 
 
 <h3>Getting started</h3>
