@@ -43,6 +43,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 For task 1, following packages are recommended: scRNAseq, GSVA, ggplot2, UniPath.
 
+In case of package errors, following packages can be installed
+
+```{r packages, eval=F}
+* UniPath
+library(devtools)
+install_github("reggenlab/UniPath")
+
+* GSVA
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install(c("GSVA","scRNAseq"))
+
+```
 
 This vigenette shows results for Task 1:
 

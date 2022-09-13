@@ -39,6 +39,19 @@ knitr::opts_chunk$set(echo = TRUE)
 
 For task 2, following packages are recommended: ggplot2, ComplexHeatmap, ggpubr.
 
+In case of package errors, following packages can be installed
+
+
+```{r packages, eval=F}
+
+* ComplexHeatmap
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("ComplexHeatmap")
+
+```
 
 This vigenette shows results of Task 2 which involves investigation of similarities in bulk RNA-seq CCLE gene expression profiles and GDSC drug response data. This task involves fitting linear model for each drug and each gene. 
 
