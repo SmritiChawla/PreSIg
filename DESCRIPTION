@@ -18,4 +18,5 @@ Imports:
     ComplexHeatmap,
     ggpubr,
     knitr
+Suggests: rmarkdown
 VignetteBuilder: knitr
