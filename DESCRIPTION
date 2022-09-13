@@ -5,7 +5,7 @@ Version: 0.1.0
 Author: Smriti Chawla
 Maintainer: The package maintainer <smritic@iiitd.ac.in>
 Description: PreSig allow users to compute gene set enrichement scores for single cell gene expression profiles using two existing methods: GSVA and UniPath. It enables cell type assignent to invidual cells based on highest score of cell type specific gene sets. Further it allows model drug response in form of IC50 values using bulk gene expression profiles.
-Depends:R (>= 4.2.1)
+Depends:R (>= 4.1.0)
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
