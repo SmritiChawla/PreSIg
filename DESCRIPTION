@@ -17,7 +17,6 @@ Imports:
     UniPath,
     ComplexHeatmap,
     ggpubr
-    knitr
 Suggests: 
     rmarkdown, 
     knitr
